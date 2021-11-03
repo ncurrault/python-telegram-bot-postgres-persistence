@@ -140,7 +140,7 @@ class PostgresPersistence(BasePersistence[UD, CD, BD]):
                     'bot_data': self.bot_data,
                     'callback_data': self.callback_data,
                 }
-                data_serialized = pickle.dumps(data, file)
+                data_serialized = pickle.dumps(data)
                 cur.execute("INSERT INTO telegram_persistence (data) VALUES (%s);", (data_serialized,))
                 conn.commit()
         finally:
