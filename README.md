@@ -30,3 +30,7 @@ updater = Updater(token=API_KEY, persistence=db_persistence)
   * more testing
   * prevent table from growing forever
   * proper library formatting for PyPI
+
+## License/Acknowledgements
+
+The code was adapted from [`PicklePersistence`](https://github.com/python-telegram-bot/python-telegram-bot/blob/master/telegram/ext/picklepersistence.py) in [the original python-telegram-bot library](https://github.com/python-telegram-bot/python-telegram-bot), which is available under a GNU Lesser Public License (Version 3). Therefore, this library is also available under that same license, which you can view in the LICENSE file in this repo or at [http://www.gnu.org/licenses/]
