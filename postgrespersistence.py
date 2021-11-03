@@ -90,11 +90,13 @@ class PostgresPersistence(BasePersistence[UD, CD, BD]):
         )
 
         parsed_url = urlparse(postgres_url)
-        self.pg_user = parsed_url.username
-        self.pg_pswd = parsed_url.password
-        self.pg_host = parsed_url.hostname
-        self.pg_dbname = parsed_url.path[1:]
-        self.pg_port = parsed_url.port
+        self.psycopg2_kwargs = {
+            "dbname": parsed_url.path[1:],
+            "user": parsed_url.username,
+            "password": parsed_url.password,
+            "host": parsed_url.hostname,
+            "port": parsed_url.port,
+        }
 
         self.on_flush = on_flush
         self.user_data: Optional[DefaultDict[int, UD]] = None
@@ -105,39 +107,48 @@ class PostgresPersistence(BasePersistence[UD, CD, BD]):
         self.context_types = cast(ContextTypes[Any, UD, CD, BD], context_types or ContextTypes())
 
     def _load(self) -> None:
-        # TODO adapt
+        conn = psycopg2.connect(**self.psycopg2_kwargs)
         try:
-            filename = self.filename
-            with open(self.filename, "rb") as file:
-                data = pickle.load(file)
-                self.user_data = defaultdict(self.context_types.user_data, data['user_data'])
-                self.chat_data = defaultdict(self.context_types.chat_data, data['chat_data'])
-                # For backwards compatibility with files not containing bot data
-                self.bot_data = data.get('bot_data', self.context_types.bot_data())
-                self.callback_data = data.get('callback_data', {})
-                self.conversations = data['conversations']
-        except OSError: # TODO None check instead
-            self.conversations = {}
-            self.user_data = defaultdict(self.context_types.user_data)
-            self.chat_data = defaultdict(self.context_types.chat_data)
-            self.bot_data = self.context_types.bot_data()
-            self.callback_data = None
+            with conn.cursor() as cur:
+                cur.execute("SELECT data FROM telegram_persistence ORDER BY updated DESC LIMIT 1;")
+                row = cur.fetchone()
+                if row is None:
+                    self.conversations = {}
+                    self.user_data = defaultdict(self.context_types.user_data)
+                    self.chat_data = defaultdict(self.context_types.chat_data)
+                    self.bot_data = self.context_types.bot_data()
+                    self.callback_data = None
+                else:
+                    data = pickle.loads(row[0])
+                    self.user_data = defaultdict(self.context_types.user_data, data['user_data'])
+                    self.chat_data = defaultdict(self.context_types.chat_data, data['chat_data'])
+                    # For backwards compatibility with dumps not containing bot data
+                    self.bot_data = data.get('bot_data', self.context_types.bot_data())
+                    self.callback_data = data.get('callback_data', {})
+                    self.conversations = data['conversations']
         except pickle.UnpicklingError as exc:
-            raise TypeError(f"File {filename} does not contain valid pickle data") from exc
+            raise TypeError(f"Database does not contain valid pickle data") from exc
         except Exception as exc:
-            raise TypeError(f"Something went wrong unpickling {filename}") from exc
+            raise TypeError(f"Something went wrong loading from database/unpickling") from exc
+        finally:
+            conn.close()
 
     def _dump(self) -> None:
-        # TODO adapt
-        with open(self.filename, "wb") as file:
-            data = {
-                'conversations': self.conversations,
-                'user_data': self.user_data,
-                'chat_data': self.chat_data,
-                'bot_data': self.bot_data,
-                'callback_data': self.callback_data,
-            }
-            pickle.dump(data, file)
+        conn = psycopg2.connect(**self.psycopg2_kwargs)
+        try:
+            with conn.cursor() as cur:
+                data = {
+                    'conversations': self.conversations,
+                    'user_data': self.user_data,
+                    'chat_data': self.chat_data,
+                    'bot_data': self.bot_data,
+                    'callback_data': self.callback_data,
+                }
+                data_serialized = pickle.dumps(data, file)
+                cur.execute("INSERT INTO telegram_persistence (data) VALUES (%s);", (data_serialized,))
+                conn.commit()
+        finally:
+            conn.close()
 
     def get_user_data(self) -> DefaultDict[int, UD]:
         if self.user_data:
