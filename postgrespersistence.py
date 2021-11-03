@@ -50,7 +50,7 @@ class PostgresPersistence(BasePersistence[UD, CD, BD]):
         store_user_data: bool = True,
         store_chat_data: bool = True,
         store_bot_data: bool = True,
-        on_flush: bool = False,
+        on_flush: bool = True,
         store_callback_data: bool = False,
     ):
         ...
@@ -62,7 +62,7 @@ class PostgresPersistence(BasePersistence[UD, CD, BD]):
         store_user_data: bool = True,
         store_chat_data: bool = True,
         store_bot_data: bool = True,
-        on_flush: bool = False,
+        on_flush: bool = True,
         store_callback_data: bool = False,
         context_types: ContextTypes[Any, UD, CD, BD] = None,
     ):
@@ -74,7 +74,7 @@ class PostgresPersistence(BasePersistence[UD, CD, BD]):
         store_user_data: bool = True,
         store_chat_data: bool = True,
         store_bot_data: bool = True,
-        on_flush: bool = False,
+        on_flush: bool = True,
         store_callback_data: bool = False,
         context_types: ContextTypes[Any, UD, CD, BD] = None,
     ):
